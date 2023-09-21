@@ -85,6 +85,7 @@ var build = (function (exports) {
     const srcFiles = {};
     let rightEditor;
     const outFiles = {};
+    const referenceFiles = [];
     let errors = [];
     const {
       onBuildCall,
@@ -297,8 +298,9 @@ var build = (function (exports) {
         tabsRef.innerHTML = '';
         tabsRef.append(...Object.keys(srcFiles).map(path => {
           let close = null;
+          let isReferenceFile = referenceFiles.indexOf(path) !== -1;
           return h("div", {
-            class: "tab",
+            class: "tab" + (isReferenceFile ? " reference-file-tab" : ""),
             "data-path": path,
             onClick: () => openTab(path),
             onContextMenu: e => close = openContextMenu(e, () => h("div", {
@@ -311,7 +313,19 @@ var build = (function (exports) {
                 close?.();
                 promptRenameSrc(path);
               }
-            }, "Rename"), h("button", {
+            }, "Rename"), !isReferenceFile ? h("button", {
+              class: "context-menu-action",
+              onClick: () => {
+                close?.();
+                markAsReferenceFile(path);
+              }
+            }, "Set as reference file") : h("button", {
+              class: "context-menu-action",
+              onClick: () => {
+                close?.();
+                unmarkAsReferenceFile(path);
+              }
+            }, "Set as source file"), h("button", {
               class: "context-menu-action",
               onClick: () => {
                 close?.();
@@ -342,6 +356,18 @@ var build = (function (exports) {
         i++;
       }
       createSrcFile(currentFileName, '');
+    }
+    function markAsReferenceFile(path) {
+      referenceFiles.push(path);
+      onSrcFileUpdateCall();
+    }
+    function unmarkAsReferenceFile(path) {
+      const index = referenceFiles.indexOf(path);
+      if (index === -1) {
+        return;
+      }
+      referenceFiles.splice(index, 1);
+      onSrcFileUpdateCall();
     }
     function TabSelector() {
       let tabsRef = h("div", {
@@ -406,6 +432,10 @@ var build = (function (exports) {
       }
       srcFiles[newPath] = srcFiles[oldPath];
       delete srcFiles[oldPath];
+      let referenceFileIndex = referenceFiles.indexOf(oldPath);
+      if (referenceFileIndex !== -1) {
+        referenceFiles.splice(referenceFileIndex, 1, newPath);
+      }
       if (previousOpenedSourceFile === oldPath) {
         openSrcFile(newPath);
       }
@@ -567,8 +597,7 @@ var build = (function (exports) {
     function build() {
       disposeOutModels();
       const parser = new FuParser();
-      const inputFiles = Object.keys(srcFiles);
-      const referencedFiles = [];
+      const inputFiles = Object.keys(srcFiles).filter(f => referenceFiles.indexOf(f) === -1);
       const sema = new FileResourceSema();
       let outputFile = `output.${getExtensionFromLanguage(selectedTargetLanguage)}`;
       let namespace = "";
@@ -579,7 +608,7 @@ var build = (function (exports) {
       const system = FuSystem.new();
       let parent = system;
       transpileTry: try {
-        if (referencedFiles.length > 0) parent = parseAndResolve(parser, system, parent, referencedFiles, sema, host);
+        if (referenceFiles.length > 0) parent = parseAndResolve(parser, system, parent, referenceFiles, sema, host);
         if (parent == null) {
           console.error(`fut: ERROR: Failed to parse referenced files`);
           break transpileTry;
