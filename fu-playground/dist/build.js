@@ -2524,7 +2524,7 @@ var build = (function (exports) {
 
     var template$1 = /*@__PURE__*/getDefaultExportFromCjs(template_1);
 
-    var previewTemplateString = "<!DOCTYPE html>\r\n<html lang=\"en\">\r\n<head>\r\n    <meta charset=\"UTF-8\">\r\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\r\n    <title>Debug frame</title>\r\n    <style>\r\n        html {\r\n            background: #282828;\r\n        }\r\n        #debug-console-title {\r\n            font-family: monospace;\r\n            font-size: 120%;\r\n            font-weight: bold;\r\n            color: #eeeae0;\r\n        }\r\n\r\n        .debug-log {\r\n            font-family: monospace;\r\n            font-size: 87.5%;\r\n            background: #282828;\r\n            color: #eeeae0;\r\n            border-bottom: 1px solid #525252;\r\n            padding: 0.25rem;\r\n            margin: 0;\r\n            display: block;\r\n            white-space: pre-wrap;\r\n        }\r\n        .debug-log-warn {\r\n            background: #413A2A;\r\n            color: #EE9836;\r\n        }\r\n        .debug-log-error {\r\n            background: #4E3534;\r\n            color: #E46962;\r\n        }\r\n\r\n        .debug-log-item {\r\n            display: inline-block;\r\n        }\r\n    </style>\r\n</head>\r\n<body>\r\n    <div id=\"debug-console-title\">\r\n        Console:\r\n    </div>\r\n    <div id=\"debug-logs\"></div>\r\n    <script id=\"utils\">\r\n        (() => {\r\n            const originalConsoleLog = console.log\r\n            const originalConsoleWarn = console.warn\r\n            const originalConsoleError = console.error\r\n            console.log = function() {\r\n                debugLog('log', ...arguments)\r\n                originalConsoleLog.apply(console, arguments)\r\n            }\r\n            console.warn = function() {\r\n                debugLog('warn', ...arguments)\r\n                originalConsoleWarn.apply(console, arguments)\r\n            }\r\n            console.error = function() {\r\n                debugLog('error', ...arguments)\r\n                originalConsoleError.apply(console, arguments)\r\n            }\r\n\r\n            function debugLog(severity, ...args) {\r\n                const wrapper = document.createElement('div')\r\n                wrapper.classList.add('debug-log')\r\n                wrapper.classList.add('debug-log-' + severity)\r\n                const message = args.map(arg => {\r\n                    const item = document.createElement('span')\r\n                    item.classList.add('debug-log-item')\r\n                    if (typeof arg === 'object') {\r\n                        item.innerText = JSON.stringify(arg, null, 2)\r\n                    } else {\r\n                        item.innerText = arg\r\n                    }\r\n                    return item\r\n                })\r\n\r\n                message.forEach(item => wrapper.appendChild(item))\r\n\r\n                document.getElementById('debug-logs').appendChild(wrapper)\r\n            }\r\n        })()\r\n    </script>\r\n\r\n    <script src=\"<%= objectUrl %>\"></script>\r\n    <script>\r\n        <%= entryPoint %>()\r\n    </script>\r\n</body>\r\n</html>";
+    var previewTemplateString = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Debug frame</title>\n    <style>\n        html {\n            background: #282828;\n        }\n        #debug-console-title {\n            font-family: monospace;\n            font-size: 120%;\n            font-weight: bold;\n            color: #eeeae0;\n        }\n\n        .debug-log {\n            font-family: monospace;\n            font-size: 87.5%;\n            background: #282828;\n            color: #eeeae0;\n            border-bottom: 1px solid #525252;\n            padding: 0.25rem;\n            margin: 0;\n            display: block;\n            white-space: pre-wrap;\n        }\n        .debug-log-warn {\n            background: #413A2A;\n            color: #EE9836;\n        }\n        .debug-log-error {\n            background: #4E3534;\n            color: #E46962;\n        }\n\n        .debug-log-item {\n            display: inline-block;\n        }\n    </style>\n</head>\n<body>\n    <div id=\"debug-console-title\">\n        Console:\n    </div>\n    <div id=\"debug-logs\"></div>\n    <script id=\"utils\">\n        (() => {\n            const originalConsoleLog = console.log\n            const originalConsoleWarn = console.warn\n            const originalConsoleError = console.error\n            console.log = function() {\n                debugLog('log', ...arguments)\n                originalConsoleLog.apply(console, arguments)\n            }\n            console.warn = function() {\n                debugLog('warn', ...arguments)\n                originalConsoleWarn.apply(console, arguments)\n            }\n            console.error = function() {\n                debugLog('error', ...arguments)\n                originalConsoleError.apply(console, arguments)\n            }\n            let onNextMessage = null\n\n            function debugLog(severity, ...args) {\n                const wrapper = document.createElement('div')\n                wrapper.classList.add('debug-log')\n                wrapper.classList.add('debug-log-' + severity)\n                if (onNextMessage) {\n                    onNextMessage(args)\n                    onNextMessage = null\n                    return\n                }\n                const message = args.map(arg => {\n                    const item = document.createElement('span')\n                    item.classList.add('debug-log-item')\n                    if (typeof arg === 'object') {\n                        item.innerText = arg?.toString()\n                    } else {\n                        item.innerText = arg\n                    }\n                    if (typeof arg === 'string') {\n                        const command = getCommand(arg)\n                        if (command) {\n                            onNextMessage = (args) => {\n                                command(item, args)\n                            }\n                        }\n                    }\n                    return item\n                })\n\n                message.forEach(item => wrapper.appendChild(item))\n\n                document.getElementById('debug-logs').appendChild(wrapper)\n            }\n\n            const commands = {\n                'showImage': function(args) {\n                    const width = parseInt(args[0])\n                    const height = parseInt(args[1])\n                    if (isNaN(width) || isNaN(height)) return null\n\n                    return (/** @type {Element} */ commandEl, nextMessageArgs) => {\n                        const canvas = document.createElement('canvas')\n                        const ctx = canvas.getContext('2d')\n                        canvas.width = width\n                        canvas.height = height\n                        ctx.putImageData(new ImageData(Uint8ClampedArray.from(nextMessageArgs[0]), width, height), 0, 0)\n                        commandEl.replaceWith(canvas)\n                    }\n                }\n            }\n\n            function getCommand(str) {\n                if (typeof str !== 'string' || str.charAt(0) !== '#') return null\n                const splitted = str.slice(1).split(';')\n                const commandName = splitted[0]\n                if (!(commandName in commands)) return null\n                const next = commands[commandName](splitted.slice(1))\n                return next\n            }\n        })()\n    </script>\n\n    <script src=\"<%= objectUrl %>\"></script>\n    <script>\n        <%= entryPoint %>()\n    </script>\n</body>\n</html>";
 
     const previewTemplate = template$1(previewTemplateString);
     function launchDebugWindow(scriptSource, entryPoint) {
@@ -2660,47 +2660,58 @@ var build = (function (exports) {
     const targetLanguages = [{
       name: 'C',
       value: 'c',
-      getGenerator: () => new GenC()
+      getGenerator: () => new GenC(),
+      macro: 'C'
     }, {
       name: 'OpenCL C',
       value: 'cl',
-      getGenerator: () => new GenCl()
+      getGenerator: () => new GenCl(),
+      macro: 'CL'
     }, {
       name: 'C++',
       value: 'cpp',
-      getGenerator: () => new GenCpp()
+      getGenerator: () => new GenCpp(),
+      macro: 'CPP'
     }, {
       name: 'C#',
       value: 'cs',
-      getGenerator: () => new GenCs()
+      getGenerator: () => new GenCs(),
+      macro: 'CSHARP'
     }, {
       name: 'D',
       value: 'd',
-      getGenerator: () => new GenD()
+      getGenerator: () => new GenD(),
+      macro: 'D'
     }, {
       name: 'Java',
       value: 'java',
-      getGenerator: () => new GenJava()
+      getGenerator: () => new GenJava(),
+      macro: 'JAVA'
     }, {
       name: 'JavaScript',
       value: 'js',
-      getGenerator: () => new GenJs()
+      getGenerator: () => new GenJs(),
+      macro: 'JS'
     }, {
       name: 'Python',
       value: 'py',
-      getGenerator: () => new GenPy()
+      getGenerator: () => new GenPy(),
+      macro: 'PYTHON'
     }, {
       name: 'Swift',
       value: 'swift',
-      getGenerator: () => new GenSwift()
+      getGenerator: () => new GenSwift(),
+      macro: 'SWIFT'
     }, {
       name: 'TypeScript',
       value: 'ts',
-      getGenerator: () => new GenTs().withGenFullCode()
+      getGenerator: () => new GenTs().withGenFullCode(),
+      macro: 'TS'
     }, {
       name: 'TypeScript typings',
       value: 'd.ts',
-      getGenerator: () => new GenTs()
+      getGenerator: () => new GenTs(),
+      macro: 'TSD'
     }];
     let selectedTargetLanguage = targetLanguages[0].value;
     let previousOpenedSourceFile = '';
@@ -2930,6 +2941,8 @@ var build = (function (exports) {
       errors = host.errors;
       parser.setHost(host);
       sema.setHost(host);
+      parser.addPreSymbol('JS');
+      parser.addPreSymbol('DEBUG');
       const system = FuSystem.new();
       let parent = system;
       let program = null;
@@ -3190,6 +3203,14 @@ var build = (function (exports) {
       }
       return languageTarget.value;
     }
+    function getMacroFromLanguage(lang) {
+      const languageTarget = targetLanguages.find(l => l.value === lang);
+      if (!languageTarget) {
+        console.error(`fut: ERROR: Unknown target language ${lang}`);
+        return;
+      }
+      return languageTarget.macro;
+    }
     function build() {
       disposeOutModels();
       const parser = new FuParser();
@@ -3201,6 +3222,7 @@ var build = (function (exports) {
       errors = host.errors;
       parser.setHost(host);
       sema.setHost(host);
+      parser.addPreSymbol(getMacroFromLanguage(selectedTargetLanguage));
       const system = FuSystem.new();
       let parent = system;
       let program = null;
@@ -3249,9 +3271,35 @@ var build = (function (exports) {
 public static class Debug
 {
     public static void Run() {
+        const int Width = 20;
+        const int Height = 30;
+        byte[Width * Height * 4] colors;
         Console.WriteLine(HelloFu.GetMessage());
+        for (int x = 0; x < Width; x++) {
+            for (int y = 0; y < Height; y++) {
+                int pxOffset = (x + y * Width) * 4;
+                int split = 3 * y / Height;
+                // R
+                colors[pxOffset] = split == 0 ? 255 : 0;
+                // G
+                colors[pxOffset + 1] = split == 1 ? 255 : 0;
+                // B
+                colors[pxOffset + 2] = split == 2 ? 255 : 0;
+                // Alpha
+                colors[pxOffset + 3] = 255;
+            }
+        }
+        DebugExt.WriteImage(Width, Height, colors);
     }
 }`);
+        createSrcFile('DebugExt.fu', `public static class DebugExt {
+    public static void WriteImage(int width, int height, byte[] imageData) {
+#if DEBUG
+native {console.log("#showImage;" + width + ";" + height); console.log(imageData); }
+#endif
+    }
+}`);
+        markAsReferenceFile('DebugExt.fu');
         debugEntryPoint = 'Debug.Run';
         openSrcFile('main.fu');
         deferedBuild();
